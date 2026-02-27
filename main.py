@@ -1,18 +1,27 @@
-import discord
-from discord.ext import commands
+import psycopg2
 import os
+from datetime import datetime
 
-intents = discord.Intents.default()
-intents.message_content = True
+DATABASE_URL = os.environ["DATABASE_URL"]
+conn = psycopg2.connect(DATABASE_URL)
+cur = conn.cursor()
 
-bot = commands.Bot(command_prefix="!", intents=intents)
-
-@bot.event
-async def on_ready():
-    print(f"起動しました: {bot.user}")
+cur.execute("""
+CREATE TABLE IF NOT EXISTS study_logs (
+    id SERIAL PRIMARY KEY,
+    user_id TEXT,
+    subject TEXT,
+    content TEXT,
+    created_at TIMESTAMP
+);
+""")
+conn.commit()
 
 @bot.command()
-async def ping(ctx):
-    await ctx.send("pong")
-
-bot.run(os.environ["DISCORD_TOKEN"])
+async def log(ctx, subject, *, content):
+    cur.execute(
+        "INSERT INTO study_logs (user_id, subject, content, created_at) VALUES (%s,%s,%s,%s)",
+        (str(ctx.author.id), subject, content, datetime.now())
+    )
+    conn.commit()
+    await ctx.send("記録しました")
